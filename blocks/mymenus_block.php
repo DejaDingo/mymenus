@@ -40,7 +40,7 @@ function mymenus_block_show($options)
     $xoopsLogger->startTime('My Menus Block');
     $myts = \MyTextSanitizer::getInstance();
 
-        $registry = Mymenus\Registry::getInstance();
+    $registry = Mymenus\Registry::getInstance();
     $plugin   = Mymenus\Plugin::getInstance();
     $plugin->triggerEvent('Boot');
 
@@ -88,7 +88,13 @@ function mymenus_block_show($options)
     $jsArray  = [];
 
     // Get extra files from skins
-    $skinInfo = Utility::getSkinInfo($options[1], $options[2], isset($options[5]) ? $options[5] : '');
+    // Check the module's skins for a match with the currently defined theme.
+    // Only use the block defined skin as a fallback.
+    $currentTheme = $xoopsTpl->get_template_vars()["xoops_theme"];
+    $skinInfo = Utility::getSkinInfo($currentTheme, $options[2], isset($options[5]) ? $options[5] : '');
+    if (! file_exists($skinInfo["path"])) {
+        $skinInfo = Utility::getSkinInfo($options[1], $options[2], isset($options[5]) ? $options[5] : '');
+    }
 
     //
     if (isset($skinInfo['css'])) {
@@ -98,18 +104,27 @@ function mymenus_block_show($options)
         $jsArray = array_merge($jsArray, $skinInfo['js']);
     }
     //
+    // If multiple menus render using the same block,
+    // ensure the skin defined files and header do not get included more than once.
     if ('xoopstpl' === $helper->getConfig('assign_method')) {
+        $moduleHeader = '' . @$GLOBALS['xoopsTpl']->get_template_vars('xoops_module_header');
         $tpl_vars = '';
         foreach ($cssArray as $file) {
-            $tpl_vars .= "\n<link rel='stylesheet' type='text/css' media='all' href='{$file}'>";
+            if (FALSE === stristr($moduleHeader, $file) && FALSE === stristr($tpl_vars, $file)) {
+                $tpl_vars .= "\n<link rel='stylesheet' type='text/css' media='all' href='{$file}'>";
+            }
         }
         foreach ($jsArray as $file) {
-            $tpl_vars .= "\n<script type='text/javascript' src='{$file}'></script>";
+            if (FALSE === stristr($moduleHeader, $file) && FALSE === stristr($tpl_vars, $file)) {
+                $tpl_vars .= "\n<script type='text/javascript' src='{$file}'></script>";
+            }
         }
         if (isset($skinInfo['header'])) {
-            $tpl_vars .= "\n{$skinInfo['header']}";
+            if (FALSE === stristr($skinInfo['header'], $moduleHeader)) {
+                $tpl_vars .= "\n{$skinInfo['header']}";
+            }
         }
-        $GLOBALS['xoopsTpl']->assign('xoops_module_header', $tpl_vars . @$GLOBALS['xoopsTpl']->get_template_vars('xoops_module_header'));
+        $GLOBALS['xoopsTpl']->assign('xoops_module_header', $tpl_vars . $moduleHeader);
     } else {
         foreach ($cssArray as $file) {
             $GLOBALS['xoTheme']->addStylesheet($file);
