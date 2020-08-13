@@ -1,0 +1,7 @@
+/*
+ *    Fix - dropdown menu raised by hover disappears when moving mouse slowly into list
+ */
+
+.open>.dropdown-menu{
+        margin-top: initial;
+    }
